@@ -39,7 +39,7 @@ OBJS  = $(SRC:.c=.o)
 ARCHIVE = src/libprettylewis.a
 
 #### Rules ####
-all: src/libprettylewis.a
+all: $(ARCHIVE)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
