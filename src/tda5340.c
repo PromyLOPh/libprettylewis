@@ -269,12 +269,13 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 	NVIC_EnableIRQ(ERU0_0_IRQn);
 }
 
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode) {
+void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
 	/* the cmc register is write-only, so we can’t just read the old stuff, add
 	 * our new mode and write back again; instead always enable the brown out
 	 * detector and hope for the best */
 	ctx->mode = mode;
 	tda5340RegWrite (ctx, TDA_CMC, mode << TDA_CMC_MSEL_OFF | 1 << TDA_CMC_ENBOD_OFF);
+	ctx->sendbit = sendbit;
 
 	switch (mode) {
 		case TDA_TRANSMIT_MODE:
@@ -285,7 +286,7 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode) {
 					/* init the fifo (clears all data) */
 					1 << TDA_TXC_INITTXFIFO_OFF |
 					/* enable start bit transmission mode (sbf) */
-					0 << TDA_TXC_TXMODE_OFF);
+					ctx->sendbit ? 1 : 0 << TDA_TXC_TXMODE_OFF);
 			break;
 
 		default:
@@ -297,7 +298,10 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode) {
 /*	Start a transmission in SBF mode
  */
 void tda5340TransmissionStart (tda5340Ctx * const ctx) {
-	tda5340RegWrite (ctx, TDA_TXC, 1 << TDA_TXC_TXENDFIFO_OFF | 0 << TDA_TXC_TXMODE_OFF |
+	tda5340RegWrite (ctx, TDA_TXC,
+			1 << TDA_TXC_TXENDFIFO_OFF |
+			ctx->sendbit ? 1 : 0 << TDA_TXC_TXMODE_OFF |
+			/* actually start transmission */
 			1 << TDA_TXC_TXSTART_OFF);
 }
 

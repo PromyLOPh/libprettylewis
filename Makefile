@@ -37,6 +37,7 @@ ODFLAGS = -S
 
 OBJS  = $(SRC:.c=.o)
 ARCHIVE = src/libprettylewis.a
+INSTALLHEADERS=src/tda5340.h src/tda5340_reg.h
 
 #### Rules ####
 all: $(ARCHIVE)
@@ -49,11 +50,11 @@ src/libprettylewis.a: $(OBJS)
 
 .PHONY: clean install
 
-install:
+install: $(INSTALLHEADERS) $(ARCHIVE)
 	install -d $(LIBDIR)
 	install -m 644 $(ARCHIVE) $(LIBDIR)
 	install -d $(INCDIR)
-	install -m 644 src/tda5340.h src/tda5340_reg.h $(INCDIR)
+	install -m 644 $(INSTALLHEADERS) $(INCDIR)
 
 clean:
 	rm -f $(OBJS) $(ARCHIVE)

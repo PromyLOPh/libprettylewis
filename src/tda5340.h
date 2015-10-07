@@ -31,6 +31,8 @@ typedef struct tda5340 {
 	/* private data, do not touch */
 	/* current mode, see TDA_CMC */
 	uint8_t mode;
+	/* transmission mode: with/without start bit */
+	bool sendbit;
 	/* current page, avoids setting it every time */
 	uint8_t page;
 } tda5340Ctx;
@@ -83,7 +85,7 @@ void tda5340Reset (tda5340Ctx * const ctx);
 void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
 void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address, const uint8_t);
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address);
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode);
+void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool txmode);
 uint8_t tda5340Receive (tda5340Ctx * const ctx, uint8_t * const data);
 void tda5340IrqHandle (tda5340Ctx * const ctx);
 void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t *data, const size_t bits);
