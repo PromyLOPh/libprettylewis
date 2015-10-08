@@ -82,10 +82,7 @@ static void nintInit (tda5340Ctx * const ctx) {
 	XMC_ERU_ETL_Init(ERU0_ETL1, &button_event_generator_config);
 	XMC_ERU_OGU_Init(ERU0_OGU1, &button_event_detection_config);
 
-	/* this priority should be higher than any interrupt that _uses_ TDA
-	 * functions. Preempting this interrupt handler *and* calling TDA functions
-	 * results in undefined behavior */
-	NVIC_SetPriority(ERU0_1_IRQn, 10);
+	NVIC_SetPriority(ERU0_1_IRQn, NVIC_EncodePriority (0, 0, 1));
 	NVIC_EnableIRQ(ERU0_1_IRQn);
 }
 
@@ -286,7 +283,7 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 					/* init the fifo (clears all data) */
 					1 << TDA_TXC_INITTXFIFO_OFF |
 					/* enable start bit transmission mode (sbf) */
-					ctx->sendbit ? 1 : 0 << TDA_TXC_TXMODE_OFF);
+					(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF);
 			break;
 
 		default:
@@ -300,7 +297,7 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 void tda5340TransmissionStart (tda5340Ctx * const ctx) {
 	tda5340RegWrite (ctx, TDA_TXC,
 			1 << TDA_TXC_TXENDFIFO_OFF |
-			ctx->sendbit ? 1 : 0 << TDA_TXC_TXMODE_OFF |
+			(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
 			/* actually start transmission */
 			1 << TDA_TXC_TXSTART_OFF);
 }
