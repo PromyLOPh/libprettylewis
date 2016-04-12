@@ -27,7 +27,7 @@ CFLAGS+= -DXMC_ASSERT_ENABLE -DXMC_USER_ASSERT_FUNCTION
 CFLAGS+= -g3 -fmessage-length=0 -I$(CMSIS)/Include
 CFLAGS+= -I$(CMSIS)/Infineon/Include
 CFLAGS+= -I$(CMSIS)/Infineon/$(UC)_series/Include
-CFLAGS+= -I$(XMCLIB)/XMClib/inc/
+CFLAGS+= -I$(XMCLIB)/XMCLib/inc/
 #CFLAGS+= -nostdlib -D__SKIP_LIBC_INIT_ARRAY
 # define uc type for xmclib
 CFLAGS+= -D$(UC)_$(UC_TYPE)x$(UC_MEM)
