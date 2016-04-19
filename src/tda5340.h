@@ -92,3 +92,6 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t *data, const size_t
 void tda5340TransmissionStart (tda5340Ctx * const ctx);
 uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData);
 
+/* IRQ handler name */
+#define TDA5350IRQHANDLER ERU0_3_IRQHandler
+

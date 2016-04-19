@@ -8,16 +8,30 @@
 #include "tda5340.h"
 #include "util.h"
 
-#define TDAPON  P3_1
+/* pin config */
 /* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
  * tried that. */
-#define TDANINT P0_10
-#define TDARXSTR P0_12
-#define TDARXD P1_9
-#define SPI_MISO P2_15 /* SDO, DX0C */
-#define SPI_MOSI P2_14 /* SDI, DOUT0 */
-#define SPI_SS   P0_6 /* NCS, SELO0 */
-#define SPI_SCLK P0_11 /* SCLK, SCLKOUT */
+#define TDAPON  P0_11 /* P_ON */
+#define TDANINT P0_6 /* PP2 <-> ERU0.3B2, that is ERU0, channel 3, input B, signal 2 */
+
+/* spi pins, usic 1, channel 1 */
+#define SPI_MISO P0_0 /* SDO, DX0D */
+#define SPI_INPUTSRC USIC1_C1_DX0_P0_0
+#define SPI_MOSI P0_1 /* SDI, DOUT0 */
+#define SPI_SS   P0_9 /* NCS, SELO0 */
+#define SPI_SCLK P0_10 /* SCLK, SCLKOUT */
+
+/* interrupt, depends on ETL used, make sure you change TDA5350IRQHANDLER in .h
+ * too */
+#define INTERRUPT ERU0_3_IRQn
+/* ETL config */
+#define ETL ERU0_ETL3
+#define ETL_SRCAB XMC_ERU_ETL_SOURCE_B
+#define ETL_SRCPIN ERU0_ETL3_INPUTB_P0_6
+/* select trigger channel */
+#define ETL_CHANNEL XMC_ERU_ETL_OUTPUT_TRIGGER_CHANNEL3
+/* OGU */
+#define OGU ERU0_OGU3
 
 static void spiInit (tda5340Ctx * const ctx) {
 	XMC_SPI_CH_CONFIG_t config = {
@@ -31,7 +45,7 @@ static void spiInit (tda5340Ctx * const ctx) {
 	/* init spi */
 	XMC_SPI_CH_Init(spi, &config);
 
-	XMC_SPI_CH_SetInputSource(spi, XMC_USIC_CH_INPUT_DX0, USIC1_C0_DX0_P2_15);
+	XMC_SPI_CH_SetInputSource(spi, XMC_USIC_CH_INPUT_DX0, SPI_INPUTSRC);
 	XMC_SPI_CH_SetBitOrderMsbFirst (spi);
 	/* the clock must be shifted by half a period, so data on MOSI is set on
 	 * falling edge. The TDA samples its signal on the rising edge */
@@ -68,49 +82,26 @@ static void ponInit (tda5340Ctx * const ctx) {
 static void nintInit (tda5340Ctx * const ctx) {
 	XMC_GPIO_SetMode(TDANINT, XMC_GPIO_MODE_INPUT_TRISTATE);
 
-	const XMC_ERU_ETL_CONFIG_t button_event_generator_config = {
-		.input = ERU0_ETL1_INPUTA_P0_10,
-		.source = XMC_ERU_ETL_SOURCE_A,
+	static const XMC_ERU_ETL_CONFIG_t etlCfg = {
+		/* XXX: is is _very_ important that you use .input_a OR .input_b here
+		 * and NOT (BY ALL FUCKING MEANS NOT!) .input */
+		.input_b = ETL_SRCPIN,
+		.source = ETL_SRCAB,
 		.edge_detection = XMC_ERU_ETL_EDGE_DETECTION_FALLING,
 		.status_flag_mode = XMC_ERU_ETL_STATUS_FLAG_MODE_HWCTRL,
 		.enable_output_trigger = true,
-		.output_trigger_channel = XMC_ERU_ETL_OUTPUT_TRIGGER_CHANNEL1
+		/* trigger ogu x */
+		.output_trigger_channel = ETL_CHANNEL,
 		};
-	const XMC_ERU_OGU_CONFIG_t button_event_detection_config = {
+	static const XMC_ERU_OGU_CONFIG_t oguCfg = {
 		.service_request = XMC_ERU_OGU_SERVICE_REQUEST_ON_TRIGGER
 		};
-	XMC_ERU_ETL_Init(ERU0_ETL1, &button_event_generator_config);
-	XMC_ERU_OGU_Init(ERU0_OGU1, &button_event_detection_config);
+	XMC_ERU_ETL_Init(ETL, &etlCfg);
+	XMC_ERU_OGU_Init(OGU, &oguCfg);
 
-	NVIC_SetPriority(ERU0_1_IRQn, NVIC_EncodePriority (0, 0, 1));
-	NVIC_EnableIRQ(ERU0_1_IRQn);
+	NVIC_SetPriority(INTERRUPT, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 63, 0));
+	NVIC_EnableIRQ(INTERRUPT);
 }
-
-#if 0
-/*	Initialize rx data/strobe pin and interrupt handler
- */
-static void strobeInit (tda5340Ctx * const ctx) {
-	XMC_GPIO_SetMode(TDARXD, XMC_GPIO_MODE_INPUT_TRISTATE);
-	XMC_GPIO_SetMode(TDARXSTR, XMC_GPIO_MODE_INPUT_TRISTATE);
-
-	const XMC_ERU_ETL_CONFIG_t etlcfg = {
-		.input = ERU0_ETL2_INPUTB_P0_12,
-		.source = XMC_ERU_ETL_SOURCE_B,
-		.edge_detection = XMC_ERU_ETL_EDGE_DETECTION_RISING,
-		.status_flag_mode = XMC_ERU_ETL_STATUS_FLAG_MODE_HWCTRL,
-		.enable_output_trigger = true,
-		.output_trigger_channel = XMC_ERU_ETL_OUTPUT_TRIGGER_CHANNEL2
-		};
-	const XMC_ERU_OGU_CONFIG_t ogucfg = {
-		.service_request = XMC_ERU_OGU_SERVICE_REQUEST_ON_TRIGGER
-		};
-	XMC_ERU_ETL_Init(ERU0_ETL2, &etlcfg);
-	XMC_ERU_OGU_Init(ERU0_OGU2, &ogucfg);
-
-	NVIC_SetPriority(ERU0_2_IRQn, 11);
-	NVIC_EnableIRQ(ERU0_2_IRQn);
-}
-#endif
 
 static void txerror (tda5340Ctx * const ctx) {
 	assert (0);
@@ -120,7 +111,6 @@ void tda5340Init (tda5340Ctx * const ctx) {
 	spiInit (ctx);
 	ponInit (ctx);
 	nintInit (ctx);
-	//strobeInit (ctx);
 
 	ctx->mode = TDA_RESET_MODE;
 	ctx->page = 0;
@@ -197,7 +187,7 @@ static uint8_t regReadNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg)
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(ERU0_0_IRQn);
+	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	if (pageNeedsChange (ctx, reg)) {
@@ -206,7 +196,7 @@ uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 	const uint16_t ret = regReadNoSS (ctx->spi, reg);
 
 	XMC_SPI_CH_DisableSlaveSelect (spi);
-	NVIC_EnableIRQ(ERU0_0_IRQn);
+	NVIC_EnableIRQ(INTERRUPT);
 
 	return ret;
 }
@@ -239,13 +229,13 @@ void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
 		const uint8_t val) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(ERU0_0_IRQn);
+	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	regWritePageVerifyNoSS (ctx, reg, val);
 
 	XMC_SPI_CH_DisableSlaveSelect(spi);
-	NVIC_EnableIRQ(ERU0_0_IRQn);
+	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /*	Bulk register write. Can be used to load configurations, but make sure the
@@ -255,7 +245,7 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 		size_t count) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(ERU0_0_IRQn);
+	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	for (size_t i = 0; i < count; i++) {
@@ -263,7 +253,7 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 	}
 
 	XMC_SPI_CH_DisableSlaveSelect(spi);
-	NVIC_EnableIRQ(ERU0_0_IRQn);
+	NVIC_EnableIRQ(INTERRUPT);
 }
 
 void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
@@ -312,7 +302,7 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	const size_t bytes = (bits-1)/8 + 1;
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(ERU0_0_IRQn);
+	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	spiByte (spi, TDA_WRF);
@@ -326,7 +316,7 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	XMC_SPI_CH_SetBitOrderMsbFirst (spi);
 
 	XMC_SPI_CH_DisableSlaveSelect (spi);
-	NVIC_EnableIRQ(ERU0_0_IRQn);
+	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /*	Read data from receive fifo. Returns the number of valid bits (32 at most)
@@ -336,7 +326,7 @@ uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 	uint32_t data = 0;
 
-	NVIC_DisableIRQ(ERU0_0_IRQn);
+	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect (spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	spiByte (spi, TDA_RDF);
@@ -351,7 +341,7 @@ uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
 
 	/*Disable Slave Select line */
 	XMC_SPI_CH_DisableSlaveSelect (spi);	
-	NVIC_EnableIRQ(ERU0_0_IRQn);
+	NVIC_EnableIRQ(INTERRUPT);
 
 	/* bits 5:0 indicate number of valid bits, bit 7 indicates fifo overflow
 	 * (i.e. some data was lost), see p. 46 */
@@ -371,7 +361,7 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 		case TDA_RESET_MODE:
 			/* wait until NINT has been pulled low. triggering on falling edge,
 			 * thus check if flag is set */
-			if (XMC_ERU_ETL_GetStatusFlag (ERU0_ETL1)) {
+			if (XMC_ERU_ETL_GetStatusFlag (ETL)) {
 				if (tda5340RegRead (ctx, TDA_IS0) != POR_MAGIC_STATUS ||
 						tda5340RegRead (ctx, TDA_IS1) != POR_MAGIC_STATUS ||
 						tda5340RegRead (ctx, TDA_IS2) != POR_MAGIC_STATUS) {
@@ -381,7 +371,7 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 
 				/* wait until TDA pulled NINT high after reading the status
 				 * register. flag is cleared by hardware on positive edge */
-				while (XMC_ERU_ETL_GetStatusFlag (ERU0_ETL1));
+				while (XMC_ERU_ETL_GetStatusFlag (ETL));
 
 				puts ("the interrupt seems to be working");
 
