@@ -62,6 +62,11 @@ typedef uint16_t tda5340Address;
 #define TDA_TXC_INITTXFIFO_OFF 5
 #define TDA_TXC_TXSTART_OFF 7
 
+/* RXC */
+#define TDA_RXC_RESET (0x84)
+#define TDA_RXC_INITRXFIFO_OFF (3)
+#define TDA_RXC_FSINITRXFIFO_OFF (2)
+
 /* IS2 */
 #define TDA_IS2_RXAF_OFF 0
 #define TDA_IS2_TXEMPTY_OFF 2

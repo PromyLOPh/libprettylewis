@@ -256,14 +256,13 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 	NVIC_EnableIRQ(INTERRUPT);
 }
 
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
-	/* the cmc register is write-only, so we can’t just read the old stuff, add
-	 * our new mode and write back again; instead always enable the brown out
-	 * detector and hope for the best */
-	ctx->mode = mode;
-	tda5340RegWrite (ctx, TDA_CMC, mode << TDA_CMC_MSEL_OFF | 1 << TDA_CMC_ENBOD_OFF);
-	ctx->sendbit = sendbit;
+/* start with default value reset, then set all bits in `set` and clear those
+ * in `clear`
+ * XXX: should be used everywhere!
+ */
+#define fromReset(reset,set,clear) (((reset) | (set)) & ~(clear))
 
+void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
 	switch (mode) {
 		case TDA_TRANSMIT_MODE:
 			tda5340RegWrite (ctx, TDA_TXC,
@@ -276,10 +275,27 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 					(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF);
 			break;
 
+		case TDA_RUN_MODE_SLAVE:
+			tda5340RegWrite (ctx, TDA_RXC,
+					fromReset (TDA_RXC_RESET,
+						/* init rx fifo upon startup */
+						(1 << TDA_RXC_INITRXFIFO_OFF),
+						/* do not init fifo at frame start */
+						(1 << TDA_RXC_FSINITRXFIFO_OFF)
+						)); 
+			break;
+
 		default:
 			/* pass */
 			break;
 	}
+
+	/* the cmc register is write-only, so we can’t just read the old stuff, add
+	 * our new mode and write back again; instead always enable the brown out
+	 * detector and hope for the best */
+	ctx->mode = mode;
+	tda5340RegWrite (ctx, TDA_CMC, mode << TDA_CMC_MSEL_OFF | 1 << TDA_CMC_ENBOD_OFF);
+	ctx->sendbit = sendbit;
 }
 
 /*	Start a transmission in SBF mode
