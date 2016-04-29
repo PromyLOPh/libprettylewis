@@ -59,6 +59,7 @@ typedef uint16_t tda5340Address;
 #define TDA_TXC_TXFAILSAFE_OFF 0
 #define TDA_TXC_TXENDFIFO_OFF 1
 #define TDA_TXC_TXMODE_OFF 3
+#define TDA_TXC_TXBDRSYNC_OFF (4)
 #define TDA_TXC_INITTXFIFO_OFF 5
 #define TDA_TXC_TXSTART_OFF 7
 

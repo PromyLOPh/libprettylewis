@@ -187,7 +187,6 @@ static uint8_t regReadNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg)
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	if (pageNeedsChange (ctx, reg)) {
@@ -196,7 +195,6 @@ uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 	const uint16_t ret = regReadNoSS (ctx->spi, reg);
 
 	XMC_SPI_CH_DisableSlaveSelect (spi);
-	NVIC_EnableIRQ(INTERRUPT);
 
 	return ret;
 }
@@ -229,13 +227,11 @@ void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
 		const uint8_t val) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	regWritePageVerifyNoSS (ctx, reg, val);
 
 	XMC_SPI_CH_DisableSlaveSelect(spi);
-	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /*	Bulk register write. Can be used to load configurations, but make sure the
@@ -245,7 +241,6 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 		size_t count) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	for (size_t i = 0; i < count; i++) {
@@ -253,7 +248,6 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 	}
 
 	XMC_SPI_CH_DisableSlaveSelect(spi);
-	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /* start with default value reset, then set all bits in `set` and clear those
@@ -263,6 +257,9 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
 #define fromReset(reset,set,clear) (((reset) | (set)) & ~(clear))
 
 void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
+	ctx->mode = mode;
+	ctx->sendbit = sendbit;
+
 	switch (mode) {
 		case TDA_TRANSMIT_MODE:
 			tda5340RegWrite (ctx, TDA_TXC,
@@ -272,7 +269,12 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 					/* init the fifo (clears all data) */
 					1 << TDA_TXC_INITTXFIFO_OFF |
 					/* enable start bit transmission mode (sbf) */
-					(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF);
+					(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
+					/* enable failsafe mode */
+					(1 << TDA_TXC_TXFAILSAFE_OFF) |
+					/* not sure if relevant, but enabled by tda explorer */
+					(1 << TDA_TXC_TXBDRSYNC_OFF)
+					);
 			break;
 
 		case TDA_RUN_MODE_SLAVE:
@@ -293,19 +295,22 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 	/* the cmc register is write-only, so we can’t just read the old stuff, add
 	 * our new mode and write back again; instead always enable the brown out
 	 * detector and hope for the best */
-	ctx->mode = mode;
 	tda5340RegWrite (ctx, TDA_CMC, mode << TDA_CMC_MSEL_OFF | 1 << TDA_CMC_ENBOD_OFF);
-	ctx->sendbit = sendbit;
 }
 
 /*	Start a transmission in SBF mode
  */
 void tda5340TransmissionStart (tda5340Ctx * const ctx) {
 	tda5340RegWrite (ctx, TDA_TXC,
-			1 << TDA_TXC_TXENDFIFO_OFF |
+			(1 << TDA_TXC_TXENDFIFO_OFF) |
 			(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
+			/* enable failsafe mode */
+			(1 << TDA_TXC_TXFAILSAFE_OFF) |
+			/* not sure if relevant, but enabled by tda explorer */
+			(1 << TDA_TXC_TXBDRSYNC_OFF) |
 			/* actually start transmission */
-			1 << TDA_TXC_TXSTART_OFF);
+			(1 << TDA_TXC_TXSTART_OFF)
+			);
 }
 
 /*	Write packet to transmission fifo
@@ -318,7 +323,6 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	const size_t bytes = (bits-1)/8 + 1;
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	spiByte (spi, TDA_WRF);
@@ -332,7 +336,6 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	XMC_SPI_CH_SetBitOrderMsbFirst (spi);
 
 	XMC_SPI_CH_DisableSlaveSelect (spi);
-	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /*	Read data from receive fifo. Returns the number of valid bits (32 at most)
@@ -342,7 +345,6 @@ uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 	uint32_t data = 0;
 
-	NVIC_DisableIRQ(INTERRUPT);
 	XMC_SPI_CH_EnableSlaveSelect (spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
 	spiByte (spi, TDA_RDF);
@@ -357,7 +359,6 @@ uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
 
 	/*Disable Slave Select line */
 	XMC_SPI_CH_DisableSlaveSelect (spi);	
-	NVIC_EnableIRQ(INTERRUPT);
 
 	/* bits 5:0 indicate number of valid bits, bit 7 indicates fifo overflow
 	 * (i.e. some data was lost), see p. 46 */
