@@ -338,10 +338,10 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	XMC_SPI_CH_DisableSlaveSelect (spi);
 }
 
-/*	Read data from receive fifo. Returns the number of valid bits (32 at most)
- *	or -1 if a fifo overflow occured.
+/*	Read data from receive fifo. Returns false if fifo overflow occured.
  */
-uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
+bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
+		uint8_t * const retSize) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 	uint32_t data = 0;
 
@@ -363,11 +363,11 @@ uint8_t tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData) {
 	/* bits 5:0 indicate number of valid bits, bit 7 indicates fifo overflow
 	 * (i.e. some data was lost), see p. 46 */
 	if (bitsValid >> 7) {
-		return -1;
-	} else {
-		*retData = data;
-		return bitsValid & 0x3f;
+		return false;
 	}
+	*retData = data;
+	*retSize = bitsValid & 0x3f;
+	return true;
 }
 
 /*	Interrupt handler, calls the appropriate callbacks */
