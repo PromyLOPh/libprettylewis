@@ -29,8 +29,8 @@ typedef struct tda5340 {
 	void (*rxaf) (struct tda5340 * const);
 
 	/* private data, do not touch */
-	/* current mode, see TDA_CMC */
-	uint8_t mode;
+	/* current mode, see TDA_CMC, written by isr */
+	volatile uint8_t mode;
 	/* transmission mode: with/without start bit */
 	bool sendbit;
 	/* current page, avoids setting it every time */
