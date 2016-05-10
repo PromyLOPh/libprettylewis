@@ -79,7 +79,7 @@ static void ponInit (tda5340Ctx * const ctx) {
 
 /*	Initialize NINT pin and interrupt handler
  */
-static void nintInit (tda5340Ctx * const ctx) {
+static void nintInit (tda5340Ctx * const ctx, const uint32_t priority) {
 	XMC_GPIO_SetMode(TDANINT, XMC_GPIO_MODE_INPUT_TRISTATE);
 
 	static const XMC_ERU_ETL_CONFIG_t etlCfg = {
@@ -99,7 +99,7 @@ static void nintInit (tda5340Ctx * const ctx) {
 	XMC_ERU_ETL_Init(ETL, &etlCfg);
 	XMC_ERU_OGU_Init(OGU, &oguCfg);
 
-	NVIC_SetPriority(INTERRUPT, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 63, 0));
+	NVIC_SetPriority(INTERRUPT, priority);
 	NVIC_EnableIRQ(INTERRUPT);
 }
 
@@ -107,10 +107,14 @@ static void txerror (tda5340Ctx * const ctx) {
 	assert (0);
 }
 
-void tda5340Init (tda5340Ctx * const ctx) {
+/*	Initialize TDA handle
+ *
+ *	:param priority: priority for NINT interrupt, encoded with NVIC_EncodePriority()
+ */
+void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
 	spiInit (ctx);
 	ponInit (ctx);
-	nintInit (ctx);
+	nintInit (ctx, priority);
 
 	ctx->mode = TDA_RESET_MODE;
 	ctx->page = 0;

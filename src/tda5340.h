@@ -86,7 +86,7 @@ typedef uint16_t tda5340Address;
 /* receive fifo size, in bits */
 #define TDA_RXFIFO_SIZE 288
 
-void tda5340Init (tda5340Ctx * const ctx);
+void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority);
 void tda5340Reset (tda5340Ctx * const ctx);
 void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
 void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address, const uint8_t);
