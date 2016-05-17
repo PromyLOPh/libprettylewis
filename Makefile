@@ -42,6 +42,8 @@ INSTALLHEADERS=src/tda5340.h src/tda5340_reg.h
 #### Rules ####
 all: $(ARCHIVE)
 
+-include $(SRC:.c=.d)
+
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
