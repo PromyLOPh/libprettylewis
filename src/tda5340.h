@@ -53,6 +53,11 @@ typedef uint16_t tda5340Address;
 #define TDA_RUN_MODE_SLAVE 2
 #define TDA_TRANSMIT_MODE 3
 #define TDA_RESET_MODE 4 /* not an actual mode */
+#define TDA_CMC_MCS_OFF (2)
+#define TDA_CONFIG_A (0)
+#define TDA_CONFIG_B (1)
+#define TDA_CONFIG_C (2)
+#define TDA_CONFIG_D (3)
 #define TDA_CMC_ENBOD_OFF 4
 
 /* TXC */
@@ -76,9 +81,11 @@ typedef uint16_t tda5340Address;
 #define TDA_IS2_TXE_OFF 7
 
 /* IS0 */
-#define TDA_IS0_EOMA_OFF 3
-#define TDA_IS0_FSYNCA_OFF 1
-#define TDA_IS0_WUA_OFF 0
+#define TDA_IS0_WUA_OFF (0)
+#define TDA_IS0_FSYNCA_OFF (1)
+#define TDA_IS0_EOMA_OFF (3)
+#define TDA_IS0_FSYNCB_OFF (5)
+#define TDA_IS0_EOMB_OFF (7)
 
 /* IM0 */
 #define TDA_IM0_IMEOMA_OFF 3
@@ -91,7 +98,7 @@ void tda5340Reset (tda5340Ctx * const ctx);
 void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
 void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address, const uint8_t);
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address);
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool txmode);
+void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool, const uint8_t);
 uint8_t tda5340Receive (tda5340Ctx * const ctx, uint8_t * const data);
 void tda5340IrqHandle (tda5340Ctx * const ctx);
 void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t *data, const size_t bits);

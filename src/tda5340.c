@@ -260,7 +260,11 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
  */
 #define fromReset(reset,set,clear) (((reset) | (set)) & ~(clear))
 
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit) {
+void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit,
+		const uint8_t config) {
+	/* two bits */
+	assert (config < 4);
+
 	ctx->mode = mode;
 	ctx->sendbit = sendbit;
 
@@ -299,7 +303,9 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 	/* the cmc register is write-only, so we can’t just read the old stuff, add
 	 * our new mode and write back again; instead always enable the brown out
 	 * detector and hope for the best */
-	tda5340RegWrite (ctx, TDA_CMC, mode << TDA_CMC_MSEL_OFF | 1 << TDA_CMC_ENBOD_OFF);
+	tda5340RegWrite (ctx, TDA_CMC, (mode << TDA_CMC_MSEL_OFF) |
+			(config << TDA_CMC_MCS_OFF) |
+			(1 << TDA_CMC_ENBOD_OFF));
 }
 
 /*	Start a transmission in SBF mode
@@ -453,6 +459,14 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 				ctx->rxfsync (ctx);
 			}
 			if (bitIsSet (is0, TDA_IS0_EOMA_OFF) && ctx->rxeom != NULL) {
+				/* end of message indicator */
+				ctx->rxeom (ctx);
+			}
+			if (bitIsSet (is0, TDA_IS0_FSYNCB_OFF) && ctx->rxfsync != NULL) {
+				/* frame synchronized config B */
+				ctx->rxfsync (ctx);
+			}
+			if (bitIsSet (is0, TDA_IS0_EOMB_OFF) && ctx->rxeom != NULL) {
 				/* end of message indicator */
 				ctx->rxeom (ctx);
 			}
