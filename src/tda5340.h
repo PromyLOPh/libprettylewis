@@ -7,6 +7,9 @@ typedef struct {
 	uint8_t val;
 } tdaConfigVal;
 
+struct tda5340;
+typedef void (*tda5340Callback) (struct tda5340 * const, void * const);
+
 typedef struct tda5340 {
 	/* configuration, fill before calling init */
 	/* spi channel */
@@ -14,19 +17,21 @@ typedef struct tda5340 {
 
 	/* callbacks */
 	/* transmission error */
-	void (*txerror) (struct tda5340 * const);
+	tda5340Callback txerror,
 	/* transmitter ready */
-	void (*txready) (struct tda5340 * const);
+			txready,
 	/* tx fifo almost empty */
-	void (*txae) (struct tda5340 * const);
+			txae,
 	/* tx fifo empty */
-	void (*txempty) (struct tda5340 * const);
+			txempty,
 	/* receiver synchronized */
-	void (*rxfsync) (struct tda5340 * const);
+			rxfsync,
 	/* receiver got end of message */
-	void (*rxeom) (struct tda5340 * const);
+			rxeom,
 	/* receive fifo almost full */
-	void (*rxaf) (struct tda5340 * const);
+			rxaf;
+	/* callback data */
+	void *data;
 
 	/* private data, do not touch */
 	/* current mode, see TDA_CMC, written by isr */

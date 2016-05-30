@@ -103,7 +103,7 @@ static void nintInit (tda5340Ctx * const ctx, const uint32_t priority) {
 	NVIC_EnableIRQ(INTERRUPT);
 }
 
-static void txerror (tda5340Ctx * const ctx) {
+static void txerror (tda5340Ctx * const ctx, void * const data) {
 	assert (0);
 }
 
@@ -425,19 +425,19 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 			}
 			if (bitIsSet (is2, TDA_IS2_TXE_OFF) && ctx->txerror != NULL) {
 				/* transmission error */
-				ctx->txerror (ctx);
+				ctx->txerror (ctx, ctx->data);
 			}
 			if (bitIsSet (is2, TDA_IS2_TXAE_OFF) && ctx->txae != NULL) {
 				/* transmission fifo almost empty */
-				ctx->txae (ctx);
+				ctx->txae (ctx, ctx->data);
 			}
 			if (bitIsSet (is2, TDA_IS2_TXEMPTY_OFF) && ctx->txempty != NULL) {
 				/* transmission fifo empty */
-				ctx->txempty (ctx);
+				ctx->txempty (ctx, ctx->data);
 			}
 			if (bitIsSet (is2, TDA_IS2_TXR_OFF) && ctx->txready != NULL) {
 				/* tx ready */
-				ctx->txready (ctx);
+				ctx->txready (ctx, ctx->data);
 			}
 			break;
 		}
@@ -456,23 +456,23 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 			}
 			if (bitIsSet (is0, TDA_IS0_FSYNCA_OFF) && ctx->rxfsync != NULL) {
 				/* frame synchronized config A */
-				ctx->rxfsync (ctx);
+				ctx->rxfsync (ctx, ctx->data);
 			}
 			if (bitIsSet (is0, TDA_IS0_EOMA_OFF) && ctx->rxeom != NULL) {
 				/* end of message indicator */
-				ctx->rxeom (ctx);
+				ctx->rxeom (ctx, ctx->data);
 			}
 			if (bitIsSet (is0, TDA_IS0_FSYNCB_OFF) && ctx->rxfsync != NULL) {
 				/* frame synchronized config B */
-				ctx->rxfsync (ctx);
+				ctx->rxfsync (ctx, ctx->data);
 			}
 			if (bitIsSet (is0, TDA_IS0_EOMB_OFF) && ctx->rxeom != NULL) {
 				/* end of message indicator */
-				ctx->rxeom (ctx);
+				ctx->rxeom (ctx, ctx->data);
 			}
 			if (bitIsSet (is2, TDA_IS2_RXAF_OFF) && ctx->rxaf != NULL) {
 				/* receive fifo almost full */
-				ctx->rxaf (ctx);
+				ctx->rxaf (ctx, ctx->data);
 			}
 			break;
 		}
