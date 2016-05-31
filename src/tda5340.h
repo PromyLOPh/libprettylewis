@@ -1,5 +1,7 @@
 #pragma once
 
+#include <xmc_usic.h>
+
 #include "tda5340_reg.h"
 
 typedef struct {
