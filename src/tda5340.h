@@ -100,6 +100,8 @@ typedef uint16_t tda5340Address;
 /* receive fifo size, in bits */
 #define TDA_RXFIFO_SIZE 288
 
+#define TDA_FIFOREADALL_OVERFLOW (SIZE_MAX)
+
 void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority);
 void tda5340Reset (tda5340Ctx * const ctx);
 void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
@@ -112,6 +114,8 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t *data, const size_t
 void tda5340TransmissionStart (tda5340Ctx * const ctx);
 bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 		uint8_t * const retSize);
+size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
+		const size_t dataLen);
 
 /* IRQ handler name */
 #define TDA5350IRQHANDLER ERU0_3_IRQHandler

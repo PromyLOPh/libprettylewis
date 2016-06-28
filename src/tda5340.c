@@ -380,6 +380,54 @@ bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 	return true;
 }
 
+/*	Retrieve fifo contents, put it into data, which can hold up to dataLen
+ *	bytes. Returns number of bits received.
+ */
+size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
+		const size_t dataLen) {
+	assert (ctx != NULL);
+	assert (data != NULL);
+	assert (dataLen > 0);
+
+	/* now retrieve data from fifo */
+	uint32_t shift = 0;
+	size_t shiftPos = 0;
+	uint32_t *dataStart = (uint32_t *) data, *dataPos = dataStart;
+	size_t totalBits = 0;
+	/* get everything in the fifo, assuming we’re reading faster than new input
+	 * can flow in */
+	while (totalBits < TDA_RXFIFO_SIZE) {
+		uint32_t block;
+		uint8_t bitsReceived;
+		if (!tda5340FifoRead (ctx, &block, &bitsReceived)) {
+			/* overflow */
+			return TDA_FIFOREADALL_OVERFLOW;
+		}
+		/* truncated packet or done receiving */
+		if (bitsReceived == 0) {
+			break;
+		}
+
+		/* received blocks can have arbitrary lengths (in bits), thus we need a
+		 * shift register to align the data correctly before writing it to the
+		 * output array */
+		shift |= block << shiftPos;
+		shiftPos += bitsReceived;
+		if (shiftPos >= sizeof (shift)*8) {
+			assert ((uintptr_t) dataPos - (uintptr_t) dataStart < dataLen);
+			*dataPos = shift;
+			++dataPos;
+			shiftPos = shiftPos % (sizeof (shift)*8);
+			shift = block >> (bitsReceived - shiftPos);
+		}
+		totalBits += bitsReceived;
+	}
+	assert ((uintptr_t) dataPos - (uintptr_t) dataStart < dataLen);
+	*dataPos = shift;
+
+	return totalBits;
+}
+
 /*	Interrupt handler, calls the appropriate callbacks */
 void tda5340IrqHandle (tda5340Ctx * const ctx) {
 	assert (ctx != NULL);
