@@ -37,7 +37,7 @@ ODFLAGS = -S
 
 OBJS  = $(SRC:.c=.o)
 ARCHIVE = src/libprettylewis.a
-INSTALLHEADERS=src/tda5340.h src/tda5340_reg.h
+INSTALLHEADERS=src/tda5340.h src/tda5340_reg.h src/tda5340_presets.h
 
 #### Rules ####
 all: $(ARCHIVE)

@@ -120,3 +120,6 @@ size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
 /* IRQ handler name */
 #define TDA5350IRQHANDLER ERU0_3_IRQHandler
 
+#include "tda5340_reg.h"
+#include "tda5340_presets.h"
+

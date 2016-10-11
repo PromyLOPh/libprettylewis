@@ -72,7 +72,6 @@ static void ponInit (tda5340Ctx * const ctx) {
 	const XMC_GPIO_CONFIG_t config = {
 			.mode = XMC_GPIO_MODE_OUTPUT_PUSH_PULL,
 			.output_level = XMC_GPIO_OUTPUT_LEVEL_LOW,
-			.output_strength = XMC_GPIO_OUTPUT_STRENGTH_MEDIUM
 			};
 	XMC_GPIO_Init (TDAPON, &config);
 }
