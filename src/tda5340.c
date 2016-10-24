@@ -379,13 +379,15 @@ bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 	return true;
 }
 
-/*	Retrieve fifo contents, put it into data, which can hold up to dataLen
- *	bytes. Returns number of bits received.
+/*	Retrieve fifo contents, put it into data, which can hold up to len _bytes_.
+ *	len is set to received _bits_.
  */
-size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
-		const size_t dataLen) {
+tda5340FifoReadStatus tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
+		size_t * const len) {
 	assert (ctx != NULL);
 	assert (data != NULL);
+
+	const size_t dataLen = *len;
 	assert (dataLen > 0);
 
 	/* now retrieve data from fifo */
@@ -400,7 +402,7 @@ size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
 		uint8_t bitsReceived;
 		if (!tda5340FifoRead (ctx, &block, &bitsReceived)) {
 			/* overflow */
-			return TDA_FIFOREADALL_OVERFLOW;
+			return TDA_FIFO_OVERFLOW;
 		}
 		/* truncated packet or done receiving */
 		if (bitsReceived == 0) {
@@ -413,7 +415,9 @@ size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
 		shift |= block << shiftPos;
 		shiftPos += bitsReceived;
 		if (shiftPos >= sizeof (shift)*8) {
-			assert ((uintptr_t) dataPos - (uintptr_t) dataStart < dataLen);
+			if ((uintptr_t) dataPos - (uintptr_t) dataStart >= dataLen) {
+				return TDA_FIFO_BUFFER_TOO_SMALL;
+			}
 			*dataPos = shift;
 			++dataPos;
 			shiftPos = shiftPos % (sizeof (shift)*8);
@@ -421,10 +425,13 @@ size_t tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
 		}
 		totalBits += bitsReceived;
 	}
-	assert ((uintptr_t) dataPos - (uintptr_t) dataStart < dataLen);
+	if ((uintptr_t) dataPos - (uintptr_t) dataStart >= dataLen) {
+		return TDA_FIFO_BUFFER_TOO_SMALL;
+	}
 	*dataPos = shift;
+	*len = totalBits;
 
-	return totalBits;
+	return TDA_FIFO_OK;
 }
 
 /*	Interrupt handler, calls the appropriate callbacks */
