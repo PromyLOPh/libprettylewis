@@ -11,8 +11,8 @@
 /* pin config */
 /* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
  * tried that. */
-#define TDAPON  P0_11 /* P_ON */
-#define TDANINT P0_6 /* PP2 <-> ERU0.3B2, that is ERU0, channel 3, input B, signal 2 */
+#define TDAPON  P0_3 /* P_ON */
+#define TDANINT P0_2 /* PP2 <-> ERU0.3B3, that is ERU0, channel 3, input B, signal 3 */
 
 /* spi pins, usic 1, channel 1 */
 #define SPI_MISO P0_0 /* SDO, DX0D */
@@ -27,7 +27,7 @@
 /* ETL config */
 #define ETL ERU0_ETL3
 #define ETL_SRCAB XMC_ERU_ETL_SOURCE_B
-#define ETL_SRCPIN ERU0_ETL3_INPUTB_P0_6
+#define ETL_SRCPIN ERU0_ETL3_INPUTB_P0_2
 /* select trigger channel */
 #define ETL_CHANNEL XMC_ERU_ETL_OUTPUT_TRIGGER_CHANNEL3
 /* OGU */
