@@ -97,6 +97,18 @@ typedef uint16_t tda5340Address;
 /* IM0 */
 #define TDA_IM0_IMEOMA_OFF 3
 
+/* IM2, bit positions */
+enum {
+	TDA_IM2_RXAF_OFF = 0,
+	TDA_IM2_SYSRDY_OFF = 1,
+	TDA_IM2_TXEMPTY_OFF = 2,
+	TDA_IM2_TXAE_OFF = 3,
+	TDA_IM2_TXAF_OFF = 4,
+	TDA_IM2_TXDS_OFF = 5,
+	TDA_IM2_TXREADY_OFF = 6,
+	TDA_IM2_TXERROR_OFF = 7,
+};
+
 /* receive fifo size, in bits */
 #define TDA_RXFIFO_SIZE 288
 
