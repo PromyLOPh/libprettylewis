@@ -487,25 +487,28 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 				puts ("phishy status");
 				break;
 			}
+			/* order matters, if all events are received at the same time, the
+			 * “natural” order (frame start, rx full, end of message) should be
+			 * chosen */
 			if (bitIsSet (is0, TDA_IS0_FSYNCA_OFF) && ctx->rxfsync != NULL) {
 				/* frame synchronized config A */
 				ctx->rxfsync (ctx, ctx->data);
-			}
-			if (bitIsSet (is0, TDA_IS0_EOMA_OFF) && ctx->rxeom != NULL) {
-				/* end of message indicator */
-				ctx->rxeom (ctx, ctx->data);
 			}
 			if (bitIsSet (is0, TDA_IS0_FSYNCB_OFF) && ctx->rxfsync != NULL) {
 				/* frame synchronized config B */
 				ctx->rxfsync (ctx, ctx->data);
 			}
-			if (bitIsSet (is0, TDA_IS0_EOMB_OFF) && ctx->rxeom != NULL) {
-				/* end of message indicator */
-				ctx->rxeom (ctx, ctx->data);
-			}
 			if (bitIsSet (is2, TDA_IS2_RXAF_OFF) && ctx->rxaf != NULL) {
 				/* receive fifo almost full */
 				ctx->rxaf (ctx, ctx->data);
+			}
+			if (bitIsSet (is0, TDA_IS0_EOMA_OFF) && ctx->rxeom != NULL) {
+				/* end of message indicator */
+				ctx->rxeom (ctx, ctx->data);
+			}
+			if (bitIsSet (is0, TDA_IS0_EOMB_OFF) && ctx->rxeom != NULL) {
+				/* end of message indicator */
+				ctx->rxeom (ctx, ctx->data);
 			}
 			break;
 		}
