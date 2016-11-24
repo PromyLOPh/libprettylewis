@@ -1,0 +1,3 @@
+[submodule "src/bitbite"]
+	path = src/bitbite
+	url = ../libbitbite/

@@ -7,6 +7,7 @@
 
 #include "tda5340.h"
 #include "util.h"
+#include "bitbite/bitbuffer.h"
 
 /* pin config */
 /* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
@@ -35,7 +36,8 @@
 
 static void spiInit (tda5340Ctx * const ctx) {
 	XMC_SPI_CH_CONFIG_t config = {
-		.baudrate = 1000000,
+		/* 5m works fine, 10m does not */
+		.baudrate = 2000000,
 		.bus_mode = XMC_SPI_CH_BUS_MODE_MASTER,
 		.selo_inversion = XMC_SPI_CH_SLAVE_SEL_INV_TO_MSLS, /* low-active */
 		.parity_mode = XMC_USIC_CH_PARITY_MODE_NONE
@@ -291,7 +293,7 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 						(1 << TDA_RXC_INITRXFIFO_OFF),
 						/* do not init fifo at frame start */
 						(1 << TDA_RXC_FSINITRXFIFO_OFF)
-						)); 
+						));
 			break;
 
 		default:
@@ -387,17 +389,10 @@ tda5340FifoReadStatus tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * cons
 	assert (ctx != NULL);
 	assert (data != NULL);
 
-	const size_t dataLen = *len;
-	assert (dataLen > 0);
+	bitbuffer bb;
+	bitbufferInit (&bb, (uint32_t *) data, (*len)*8);
 
-	/* now retrieve data from fifo */
-	uint32_t shift = 0;
-	size_t shiftPos = 0;
-	uint32_t *dataStart = (uint32_t *) data, *dataPos = dataStart;
-	size_t totalBits = 0;
-	/* get everything in the fifo, assuming we’re reading faster than new input
-	 * can flow in */
-	while (totalBits < TDA_RXFIFO_SIZE) {
+	while (true) {
 		uint32_t block;
 		uint8_t bitsReceived;
 		if (!tda5340FifoRead (ctx, &block, &bitsReceived)) {
@@ -409,27 +404,11 @@ tda5340FifoReadStatus tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * cons
 			break;
 		}
 
-		/* received blocks can have arbitrary lengths (in bits), thus we need a
-		 * shift register to align the data correctly before writing it to the
-		 * output array */
-		shift |= block << shiftPos;
-		shiftPos += bitsReceived;
-		if (shiftPos >= sizeof (shift)*8) {
-			if ((uintptr_t) dataPos - (uintptr_t) dataStart >= dataLen) {
-				return TDA_FIFO_BUFFER_TOO_SMALL;
-			}
-			*dataPos = shift;
-			++dataPos;
-			shiftPos = shiftPos % (sizeof (shift)*8);
-			shift = block >> (bitsReceived - shiftPos);
+		if (!bitbufferPush32 (&bb, block, bitsReceived)) {
+			return TDA_FIFO_BUFFER_TOO_SMALL;
 		}
-		totalBits += bitsReceived;
 	}
-	if ((uintptr_t) dataPos - (uintptr_t) dataStart >= dataLen) {
-		return TDA_FIFO_BUFFER_TOO_SMALL;
-	}
-	*dataPos = shift;
-	*len = totalBits;
+	*len = bitbufferLength (&bb);
 
 	return TDA_FIFO_OK;
 }

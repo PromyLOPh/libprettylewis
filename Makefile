@@ -4,7 +4,7 @@ INCDIR=$(PREFIX)/include
 
 #### Setup ####
 XMCLIB = /home/lbraun/projekte/treufunk/software/xmclib
-SRC = $(wildcard src/*.c)
+SRC = $(wildcard src/*.c src/bitbite/bitbuffer.c)
 UC = XMC4500
 UC_TYPE = F100
 UC_MEM = 1024
@@ -21,14 +21,14 @@ CC   = $(TOOLCHAIN)-gcc
 AR   = $(TOOLCHAIN)-ar
 
 CFLAGS = -mthumb -mcpu=$(CPU) -mfpu=$(FPU) -mfloat-abi=$(FABI)
-CFLAGS+= -O2 -ffunction-sections -fdata-sections
-CFLAGS+= -MD -std=c11 -Wall -Werror -fstrict-aliasing -fms-extensions
+CFLAGS+= -O1 -ffunction-sections -fdata-sections
+CFLAGS+= -MD -std=c11 -Wall -Werror
 CFLAGS+= -DXMC_ASSERT_ENABLE -DXMC_USER_ASSERT_FUNCTION
-CFLAGS+= -fmessage-length=0 -I$(CMSIS)/Include
+CFLAGS+= -I$(CMSIS)/Include
 CFLAGS+= -I$(CMSIS)/Infineon/Include
 CFLAGS+= -I$(CMSIS)/Infineon/$(UC)_series/Include
 CFLAGS+= -I$(XMCLIB)/XMCLib/inc/
-#CFLAGS+= -nostdlib -D__SKIP_LIBC_INIT_ARRAY
+CFLAGS+= -ggdb3
 # define uc type for xmclib
 CFLAGS+= -D$(UC)_$(UC_TYPE)x$(UC_MEM)
 LFLAGS = -L$(CMSIS)/Lib/GCC -Wl,--gc-sections
