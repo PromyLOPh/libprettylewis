@@ -59,5 +59,5 @@ install: $(INSTALLHEADERS) $(ARCHIVE)
 	install -m 644 $(INSTALLHEADERS) $(INCDIR)
 
 clean:
-	rm -f $(OBJS) $(ARCHIVE)
+	rm -f $(OBJS) $(SRC:.c=.d) $(ARCHIVE)
 
