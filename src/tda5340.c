@@ -214,16 +214,21 @@ static bool regWriteVerifyNoSS (XMC_USIC_CH_t * const spi, const tda5340Address 
 	return lastAddress == (reg & 0xff) && lastData == val;
 }
 
-/*	Set page, write register and verify result
+/*	Set page, write register, verify result and retry (if necessary)
  */
 static void regWritePageVerifyNoSS (tda5340Ctx * const ctx,
 		const tda5340Address reg, const uint8_t val) {
 	if (pageNeedsChange (ctx, reg)) {
+		/* XXX: page change is not verified */
 		pageSetNoSS (ctx, addressToPage (reg));
 	}
 
-	regWriteNoSS (ctx->spi, reg, val);
-	assert (regWriteVerifyNoSS (ctx->spi, reg, val));
+	bool success = false;
+	uint8_t retries = 5;
+	do {
+		regWriteNoSS (ctx->spi, reg, val);
+	} while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && --retries > 0);
+	assert (success);
 }
 
 /*	Write to TDA register. See note for tda5340RegRead
