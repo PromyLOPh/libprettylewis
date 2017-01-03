@@ -14,6 +14,11 @@ typedef void (*tda5340Callback) (struct tda5340 * const, void * const);
 
 typedef struct tda5340 {
 	/* configuration, fill before calling init */
+	/* init fifo at frame start, see FSINITRXFIFO */
+	bool fsInitFifo;
+	/* spi baudrate */
+	uint32_t baudrate;
+
 	/* spi channel */
 	XMC_USIC_CH_t *spi;
 

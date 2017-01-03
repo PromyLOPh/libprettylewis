@@ -35,9 +35,11 @@
 #define OGU ERU0_OGU3
 
 static void spiInit (tda5340Ctx * const ctx) {
+	assert (ctx != NULL);
+	/* 5m works fine, 10m does not */
+	assert (ctx->baudrate > 0 && ctx->baudrate < 10000000);
 	XMC_SPI_CH_CONFIG_t config = {
-		/* 5m works fine, 10m does not */
-		.baudrate = 2000000,
+		.baudrate = ctx->baudrate,
 		.bus_mode = XMC_SPI_CH_BUS_MODE_MASTER,
 		.selo_inversion = XMC_SPI_CH_SLAVE_SEL_INV_TO_MSLS, /* low-active */
 		.parity_mode = XMC_USIC_CH_PARITY_MODE_NONE
@@ -291,15 +293,16 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 					);
 			break;
 
-		case TDA_RUN_MODE_SLAVE:
+		case TDA_RUN_MODE_SLAVE: {
+			/* do not init fifo at frame start */
+			const uint8_t set = ctx->fsInitFifo ? (1 << TDA_RXC_FSINITRXFIFO_OFF) : 0;
+			const uint8_t reset = ctx->fsInitFifo ? 0 : (1 << TDA_RXC_FSINITRXFIFO_OFF);
 			tda5340RegWrite (ctx, TDA_RXC,
 					fromReset (TDA_RXC_RESET,
 						/* init rx fifo upon startup */
-						(1 << TDA_RXC_INITRXFIFO_OFF),
-						/* do not init fifo at frame start */
-						(1 << TDA_RXC_FSINITRXFIFO_OFF)
-						));
+						(1 << TDA_RXC_INITRXFIFO_OFF) | set, reset));
 			break;
+		}
 
 		default:
 			/* pass */
