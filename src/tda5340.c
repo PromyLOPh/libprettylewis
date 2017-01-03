@@ -433,8 +433,10 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 				if (tda5340RegRead (ctx, TDA_IS0) != POR_MAGIC_STATUS ||
 						tda5340RegRead (ctx, TDA_IS1) != POR_MAGIC_STATUS ||
 						tda5340RegRead (ctx, TDA_IS2) != POR_MAGIC_STATUS) {
-					/* something is wrong */
-					assert (0);
+					/* something is wrong, try again */
+					puts ("reset failed, trying again");
+					tda5340Reset (ctx);
+					break;
 				}
 
 				/* wait until TDA pulled NINT high after reading the status
@@ -444,7 +446,9 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 				puts ("the interrupt seems to be working");
 
 				if (tda5340RegRead (ctx, TDA_IS2) != 0x00) {
-					assert (0);
+					puts ("reset failed, trying again");
+					tda5340Reset (ctx);
+					break;
 				}
 
 				puts ("and the register is back to normal");
