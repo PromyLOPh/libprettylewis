@@ -155,6 +155,14 @@ static uint16_t spiByte (XMC_USIC_CH_t * const spi, const uint8_t write) {
 	return XMC_SPI_CH_GetReceivedData (spi);
 }
 
+/*	Basic register read, SS signal unchanged
+ */
+static uint8_t regReadNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg) {
+	spiByte (spi, TDA_RD);
+	spiByte (spi, reg & 0xff);
+	return spiByte (spi, 0x00);
+}
+
 /*	Write a TDA register, no slave select signal changed
  */
 static void regWriteNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg,
@@ -164,28 +172,35 @@ static void regWriteNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg,
 	spiByte (spi, val);
 }
 
-/*	Set TDA page, no slave select signal changed
+/*	Write and verify most recent register write
  */
-static void pageSetNoSS (tda5340Ctx * const ctx, const uint8_t page) {
-	assert (page < 4);
-	regWriteNoSS (ctx->spi, TDA_SFRPAGE, page);
-	ctx->page = page;
+static bool regWriteVerifyNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg,
+		const uint8_t val) {
+	regWriteNoSS (spi, reg, val);
+	/* page change never required here */
+	const uint8_t lastAddress = regReadNoSS (spi, TDA_SPIAT);
+	const uint8_t lastData = regReadNoSS (spi, TDA_SPIDT);
+	return lastAddress == (reg & 0xff) && lastData == val;
 }
 
+/*	Translate register address to page number
+ */
 static uint8_t addressToPage (const tda5340Address address) {
 	return (address >> 8) & 0x3;
 }
 
-/*	Check whether the current page needs to be changed before accessing the
- *	address; registers above 0xa0 are mirrored on all pages */
-static bool pageNeedsChange (tda5340Ctx * const ctx, const tda5340Address address) {
-	return (address & 0xff) < 0xa0 && ctx->page != addressToPage (address);
-}
-
-static uint8_t regReadNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg) {
-	spiByte (spi, TDA_RD);
-	spiByte (spi, reg & 0xff);
-	return spiByte (spi, 0x00);
+/*	Change page (if required), slave select signal unchanged
+ */
+static bool pageChangeNoSS (tda5340Ctx * const ctx, const tda5340Address reg) {
+	/*	Check whether the current page needs to be changed before accessing the
+	 *	address; registers above 0xa0 are mirrored on all pages */
+	const uint8_t page = addressToPage (reg);
+	bool ret = true;
+	if ((reg & 0xff) < 0xa0 && ctx->page != page) {
+		ret = regWriteVerifyNoSS (ctx->spi, TDA_SFRPAGE, page);
+		ctx->page = page;
+	}
+	return ret;
 }
 
 /*	Read from TDA register. The read is not interruptible, so interrupt handler
@@ -196,9 +211,7 @@ uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
 
-	if (pageNeedsChange (ctx, reg)) {
-		pageSetNoSS (ctx, addressToPage (reg));
-	}
+	pageChangeNoSS (ctx, reg);
 	const uint16_t ret = regReadNoSS (ctx->spi, reg);
 
 	XMC_SPI_CH_DisableSlaveSelect (spi);
@@ -206,30 +219,15 @@ uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 	return ret;
 }
 
-/*	Verify most recent register write
- */
-static bool regWriteVerifyNoSS (XMC_USIC_CH_t * const spi, const tda5340Address reg,
-		const uint8_t val) {
-	/* check the written value; no page change required here */
-	const uint8_t lastAddress = regReadNoSS (spi, TDA_SPIAT);
-	const uint8_t lastData = regReadNoSS (spi, TDA_SPIDT);
-	return lastAddress == (reg & 0xff) && lastData == val;
-}
-
 /*	Set page, write register, verify result and retry (if necessary)
  */
 static void regWritePageVerifyNoSS (tda5340Ctx * const ctx,
 		const tda5340Address reg, const uint8_t val) {
-	if (pageNeedsChange (ctx, reg)) {
-		/* XXX: page change is not verified */
-		pageSetNoSS (ctx, addressToPage (reg));
-	}
+	pageChangeNoSS (ctx, reg);
 
 	bool success = false;
 	uint8_t retries = 5;
-	do {
-		regWriteNoSS (ctx->spi, reg, val);
-	} while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && --retries > 0);
+	while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && --retries > 0);
 	assert (success);
 }
 
