@@ -221,43 +221,47 @@ uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
 
 /*	Set page, write register, verify result and retry (if necessary)
  */
-static void regWritePageVerifyNoSS (tda5340Ctx * const ctx,
+static bool regWritePageVerifyNoSS (tda5340Ctx * const ctx,
 		const tda5340Address reg, const uint8_t val) {
 	pageChangeNoSS (ctx, reg);
 
 	bool success = false;
 	uint8_t retries = 5;
 	while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && --retries > 0);
-	assert (success);
+	return success;
 }
 
 /*	Write to TDA register. See note for tda5340RegRead
  */
-void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
+bool tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
 		const uint8_t val) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
-
-	regWritePageVerifyNoSS (ctx, reg, val);
-
+	const bool ret = regWritePageVerifyNoSS (ctx, reg, val);
 	XMC_SPI_CH_DisableSlaveSelect(spi);
+
+	return ret;
 }
 
 /*	Bulk register write. Can be used to load configurations, but make sure the
  *	TDA is in sleep_mode before.
  */
-void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg,
+bool tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg,
 		size_t count) {
 	XMC_USIC_CH_t * const spi = ctx->spi;
+	bool ret = true;
 
 	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
-
 	for (size_t i = 0; i < count; i++) {
-		regWritePageVerifyNoSS (ctx, cfg[i].reg, cfg[i].val);
+		ret = regWritePageVerifyNoSS (ctx, cfg[i].reg, cfg[i].val);
+		if (!ret) {
+			break;
+		}
 	}
-
 	XMC_SPI_CH_DisableSlaveSelect(spi);
+
+	return ret;
 }
 
 /* start with default value reset, then set all bits in `set` and clear those
@@ -266,39 +270,41 @@ void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg
  */
 #define fromReset(reset,set,clear) (((reset) | (set)) & ~(clear))
 
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit,
+bool tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool sendbit,
 		const uint8_t config) {
 	/* two bits */
 	assert (config < 4);
 
-	ctx->mode = mode;
-	ctx->sendbit = sendbit;
-
 	switch (mode) {
 		case TDA_TRANSMIT_MODE:
-			tda5340RegWrite (ctx, TDA_TXC,
+			if (!tda5340RegWrite (ctx, TDA_TXC,
 					/* go into tx ready state if fifo runs empty, otherwise the
 					 * last bit would be sent over and over */
 					1 << TDA_TXC_TXENDFIFO_OFF |
 					/* init the fifo (clears all data) */
 					1 << TDA_TXC_INITTXFIFO_OFF |
 					/* enable start bit transmission mode (sbf) */
-					(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
+					(sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
 					/* enable failsafe mode */
 					(1 << TDA_TXC_TXFAILSAFE_OFF) |
 					/* not sure if relevant, but enabled by tda explorer */
 					(1 << TDA_TXC_TXBDRSYNC_OFF)
-					);
+					)) {
+				return false;
+			}
+			ctx->sendbit = sendbit;
 			break;
 
 		case TDA_RUN_MODE_SLAVE: {
 			/* do not init fifo at frame start */
 			const uint8_t set = ctx->fsInitFifo ? (1 << TDA_RXC_FSINITRXFIFO_OFF) : 0;
 			const uint8_t reset = ctx->fsInitFifo ? 0 : (1 << TDA_RXC_FSINITRXFIFO_OFF);
-			tda5340RegWrite (ctx, TDA_RXC,
+			if (!tda5340RegWrite (ctx, TDA_RXC,
 					fromReset (TDA_RXC_RESET,
 						/* init rx fifo upon startup */
-						(1 << TDA_RXC_INITRXFIFO_OFF) | set, reset));
+						(1 << TDA_RXC_INITRXFIFO_OFF) | set, reset))) {
+				return false;
+			}
 			break;
 		}
 
@@ -310,15 +316,20 @@ void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool send
 	/* the cmc register is write-only, so we can’t just read the old stuff, add
 	 * our new mode and write back again; instead always enable the brown out
 	 * detector and hope for the best */
-	tda5340RegWrite (ctx, TDA_CMC, (mode << TDA_CMC_MSEL_OFF) |
+	if (!tda5340RegWrite (ctx, TDA_CMC, (mode << TDA_CMC_MSEL_OFF) |
 			(config << TDA_CMC_MCS_OFF) |
-			(1 << TDA_CMC_ENBOD_OFF));
+			(1 << TDA_CMC_ENBOD_OFF))) {
+		return false;
+	}
+	ctx->mode = mode;
+
+	return true;
 }
 
 /*	Start a transmission in SBF mode
  */
-void tda5340TransmissionStart (tda5340Ctx * const ctx) {
-	tda5340RegWrite (ctx, TDA_TXC,
+bool tda5340TransmissionStart (tda5340Ctx * const ctx) {
+	return tda5340RegWrite (ctx, TDA_TXC,
 			(1 << TDA_TXC_TXENDFIFO_OFF) |
 			(ctx->sendbit ? 1 : 0) << TDA_TXC_TXMODE_OFF |
 			/* enable failsafe mode */

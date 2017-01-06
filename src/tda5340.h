@@ -127,14 +127,14 @@ typedef enum {
 
 void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority);
 void tda5340Reset (tda5340Ctx * const ctx);
-void tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
-void tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address, const uint8_t);
+bool tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg, size_t count);
+bool tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address, const uint8_t);
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address);
-void tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool, const uint8_t);
+bool tda5340ModeSet (tda5340Ctx * const ctx, const uint8_t mode, const bool, const uint8_t);
 uint8_t tda5340Receive (tda5340Ctx * const ctx, uint8_t * const data);
 void tda5340IrqHandle (tda5340Ctx * const ctx);
 void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t *data, const size_t bits);
-void tda5340TransmissionStart (tda5340Ctx * const ctx);
+bool tda5340TransmissionStart (tda5340Ctx * const ctx);
 bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 		uint8_t * const retSize);
 tda5340FifoReadStatus tda5340FifoReadAll (tda5340Ctx * const ctx, uint8_t * const data,
