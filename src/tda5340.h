@@ -18,6 +18,8 @@ typedef struct tda5340 {
 	bool fsInitFifo;
 	/* spi baudrate */
 	uint32_t baudrate;
+	/* max retries for SPI register write */
+	uint8_t retries;
 
 	/* spi channel */
 	XMC_USIC_CH_t *spi;

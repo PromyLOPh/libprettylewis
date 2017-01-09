@@ -226,8 +226,8 @@ static bool regWritePageVerifyNoSS (tda5340Ctx * const ctx,
 	pageChangeNoSS (ctx, reg);
 
 	bool success = false;
-	uint8_t retries = 5;
-	while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && --retries > 0);
+	uint8_t retries = ctx->retries;
+	while (!(success = regWriteVerifyNoSS (ctx->spi, reg, val)) && retries-- > 0);
 	return success;
 }
 
