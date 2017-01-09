@@ -101,8 +101,17 @@ typedef uint16_t tda5340Address;
 #define TDA_IS0_FSYNCB_OFF (5)
 #define TDA_IS0_EOMB_OFF (7)
 
-/* IM0 */
-#define TDA_IM0_IMEOMA_OFF 3
+/* IM0, bit positions */
+enum {
+	TDA_IM0_WUA_OFF = 0,
+	TDA_IM0_FSYNCA_OFF = 1,
+	TDA_IM0_MIDFA_OFF = 2,
+	TDA_IM0_EOMA_OFF = 3,
+	TDA_IM0_WUB_OFF = 4,
+	TDA_IM0_FSYNCB_OFF = 5,
+	TDA_IM0_MIDFB_OFF = 6,
+	TDA_IM0_EOMB_OFF = 7,
+};
 
 /* IM2, bit positions */
 enum {
