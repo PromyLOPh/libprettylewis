@@ -123,6 +123,7 @@ void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
 	ctx->page = 0;
 	/* defaults to standard handler */
 	ctx->txerror = txerror;
+	ctx->lock = 0;
 
 	puts ("initialized tda5340");
 }
@@ -143,7 +144,6 @@ void tda5340Reset (tda5340Ctx * const ctx) {
 static uint16_t spiByte (XMC_USIC_CH_t * const spi, const uint8_t write) {
 	const uint32_t recvFlag = XMC_SPI_CH_STATUS_FLAG_RECEIVE_INDICATION |
 				XMC_SPI_CH_STATUS_FLAG_ALTERNATIVE_RECEIVE_INDICATION;
-
 	XMC_SPI_CH_ClearStatusFlag (spi, recvFlag);
 
 	XMC_SPI_CH_Transmit(spi, write, XMC_SPI_CH_MODE_STANDARD);
@@ -203,18 +203,26 @@ static bool pageChangeNoSS (tda5340Ctx * const ctx, const tda5340Address reg) {
 	return ret;
 }
 
+/* 	Atomic SPI transaction start/end primitives
+ */
+static void spiStart (tda5340Ctx * const ctx) {
+	assert (__sync_bool_compare_and_swap (&ctx->lock, 0, 1) && "busy");
+	XMC_SPI_CH_EnableSlaveSelect(ctx->spi, XMC_SPI_CH_SLAVE_SELECT_0);
+}
+
+static void spiEnd (tda5340Ctx * const ctx) {
+	XMC_SPI_CH_DisableSlaveSelect (ctx->spi);
+	ctx->lock = 0;
+}
+
 /*	Read from TDA register. The read is not interruptible, so interrupt handler
  *	callbacks can safely use this function.
  */
 uint8_t tda5340RegRead (tda5340Ctx * const ctx, const tda5340Address reg) {
-	XMC_USIC_CH_t * const spi = ctx->spi;
-
-	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
-
+	spiStart (ctx);
 	pageChangeNoSS (ctx, reg);
 	const uint16_t ret = regReadNoSS (ctx->spi, reg);
-
-	XMC_SPI_CH_DisableSlaveSelect (spi);
+	spiEnd (ctx);
 
 	return ret;
 }
@@ -235,11 +243,9 @@ static bool regWritePageVerifyNoSS (tda5340Ctx * const ctx,
  */
 bool tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
 		const uint8_t val) {
-	XMC_USIC_CH_t * const spi = ctx->spi;
-
-	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
+	spiStart (ctx);
 	const bool ret = regWritePageVerifyNoSS (ctx, reg, val);
-	XMC_SPI_CH_DisableSlaveSelect(spi);
+	spiEnd (ctx);
 
 	return ret;
 }
@@ -249,17 +255,16 @@ bool tda5340RegWrite (tda5340Ctx * const ctx, const tda5340Address reg,
  */
 bool tda5340RegWriteBulk (tda5340Ctx * const ctx, const tdaConfigVal * const cfg,
 		size_t count) {
-	XMC_USIC_CH_t * const spi = ctx->spi;
 	bool ret = true;
 
-	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
+	spiStart (ctx);
 	for (size_t i = 0; i < count; i++) {
 		ret = regWritePageVerifyNoSS (ctx, cfg[i].reg, cfg[i].val);
 		if (!ret) {
 			break;
 		}
 	}
-	XMC_SPI_CH_DisableSlaveSelect(spi);
+	spiEnd (ctx);
 
 	return ret;
 }
@@ -351,7 +356,7 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	const size_t bytes = (bits-1)/8 + 1;
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
-	XMC_SPI_CH_EnableSlaveSelect(spi, XMC_SPI_CH_SLAVE_SELECT_0);
+	spiStart (ctx);
 
 	spiByte (spi, TDA_WRF);
 	spiByte (spi, bits-1);
@@ -363,7 +368,7 @@ void tda5340FifoWrite (tda5340Ctx * const ctx, const uint8_t * const data, const
 	/* switch back */
 	XMC_SPI_CH_SetBitOrderMsbFirst (spi);
 
-	XMC_SPI_CH_DisableSlaveSelect (spi);
+	spiEnd (ctx);
 }
 
 /*	Read data from receive fifo. Returns false if fifo overflow occured.
@@ -373,7 +378,7 @@ bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 	XMC_USIC_CH_t * const spi = ctx->spi;
 	uint32_t data = 0;
 
-	XMC_SPI_CH_EnableSlaveSelect (spi, XMC_SPI_CH_SLAVE_SELECT_0);
+	spiStart (ctx);
 
 	spiByte (spi, TDA_RDF);
 	/* the actual data is lsb first */
@@ -386,7 +391,7 @@ bool tda5340FifoRead (tda5340Ctx * const ctx, uint32_t * const retData,
 	const uint8_t bitsValid = spiByte (spi, 0x00);
 
 	/*Disable Slave Select line */
-	XMC_SPI_CH_DisableSlaveSelect (spi);	
+	spiEnd (ctx);
 
 	/* bits 5:0 indicate number of valid bits, bit 7 indicates fifo overflow
 	 * (i.e. some data was lost), see p. 46 */
@@ -503,7 +508,7 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 			const uint8_t is0 = tda5340RegRead (ctx, TDA_IS0);
 			//const uint8_t is1 = tda5340RegRead (ctx, TDA_IS1);
 			const uint8_t is2 = tda5340RegRead (ctx, TDA_IS2);
-			if (is0 == 0xff/* && is1 == 0xff && is2 == 0xff*/) {
+			if (is0 == 0xff/* && is1 == 0xff*/ && is2 == 0xff) {
 				/* XXX: something looks phishy */
 				puts ("phishy status");
 				break;

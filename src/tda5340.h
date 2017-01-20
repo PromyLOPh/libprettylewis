@@ -49,6 +49,8 @@ typedef struct tda5340 {
 	bool sendbit;
 	/* current page, avoids setting it every time */
 	uint8_t page;
+	/* locking flag ensuring atomic SPI transactions, for debugging only */
+	uint8_t lock;
 } tda5340Ctx;
 
 typedef uint16_t tda5340Address;
