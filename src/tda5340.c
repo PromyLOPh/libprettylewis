@@ -206,6 +206,8 @@ static bool pageChangeNoSS (tda5340Ctx * const ctx, const tda5340Address reg) {
 /* 	Atomic SPI transaction start/end primitives
  */
 static void spiStart (tda5340Ctx * const ctx) {
+	/* isr uses spi as well and should not interrupt this */
+	NVIC_DisableIRQ(INTERRUPT);
 	assert (__sync_bool_compare_and_swap (&ctx->lock, 0, 1) && "busy");
 	XMC_SPI_CH_EnableSlaveSelect(ctx->spi, XMC_SPI_CH_SLAVE_SELECT_0);
 }
@@ -213,6 +215,7 @@ static void spiStart (tda5340Ctx * const ctx) {
 static void spiEnd (tda5340Ctx * const ctx) {
 	XMC_SPI_CH_DisableSlaveSelect (ctx->spi);
 	ctx->lock = 0;
+	NVIC_EnableIRQ(INTERRUPT);
 }
 
 /*	Read from TDA register. The read is not interruptible, so interrupt handler
