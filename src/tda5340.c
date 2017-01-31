@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <assert.h>
 
 #include <xmc_eru.h>
@@ -34,6 +33,10 @@
 /* OGU */
 #define OGU ERU0_OGU3
 
+#include <SEGGER_RTT.h>
+//#define debug(...)
+#define debug(f, ...) SEGGER_RTT_printf(0, "tda: " f, ##__VA_ARGS__)
+
 static void spiInit (tda5340Ctx * const ctx) {
 	assert (ctx != NULL);
 	/* 5m works fine, 10m does not */
@@ -67,7 +70,7 @@ static void spiInit (tda5340Ctx * const ctx) {
 	XMC_GPIO_SetMode(SPI_SCLK, XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT2);
 	XMC_GPIO_SetMode(SPI_MISO, XMC_GPIO_MODE_INPUT_TRISTATE);
 
-	puts ("initialized spi");
+	debug ("initialized spi\n");
 }
 
 /*	Initialize PON pin
@@ -125,7 +128,7 @@ void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
 	ctx->txerror = txerror;
 	ctx->lock = 0;
 
-	puts ("initialized tda5340");
+	debug ("init complete\n");
 }
 
 #define POR_MAGIC_STATUS 0xff
@@ -451,7 +454,7 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 						tda5340RegRead (ctx, TDA_IS1) != POR_MAGIC_STATUS ||
 						tda5340RegRead (ctx, TDA_IS2) != POR_MAGIC_STATUS) {
 					/* something is wrong, try again */
-					puts ("reset failed, trying again");
+					debug ("reset failed, trying again\n");
 					tda5340Reset (ctx);
 					break;
 				}
@@ -460,15 +463,15 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 				 * register. flag is cleared by hardware on positive edge */
 				while (XMC_ERU_ETL_GetStatusFlag (ETL));
 
-				puts ("the interrupt seems to be working");
+				debug ("the interrupt seems to be working\n");
 
 				if (tda5340RegRead (ctx, TDA_IS2) != 0x00) {
-					puts ("reset failed, trying again");
+					debug ("reset failed, trying again\n");
 					tda5340Reset (ctx);
 					break;
 				}
 
-				puts ("and the register is back to normal");
+				debug ("and the register is back to normal\n");
 
 				ctx->mode = TDA_SLEEP_MODE;
 			}
@@ -513,7 +516,7 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 			const uint8_t is2 = tda5340RegRead (ctx, TDA_IS2);
 			if (is0 == 0xff/* && is1 == 0xff*/ && is2 == 0xff) {
 				/* XXX: something looks phishy */
-				puts ("phishy status");
+				debug ("phishy status\n");
 				break;
 			}
 			/* order matters, if all events are received at the same time, the

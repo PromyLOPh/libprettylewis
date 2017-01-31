@@ -1,3 +1,6 @@
 [submodule "src/bitbite"]
 	path = src/bitbite
 	url = ../libbitbite/
+[submodule "src/rtt"]
+	path = src/rtt
+	url = ../rtt
