@@ -6,7 +6,7 @@
 
 #include "tda5340.h"
 #include "util.h"
-#include "bitbite/bitbuffer.h"
+#include <bitbuffer.h>
 
 /* pin config */
 /* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
