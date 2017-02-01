@@ -3,10 +3,11 @@ LIBDIR=$(PREFIX)/lib
 INCDIR=$(PREFIX)/include
 
 include src/rtt/rtt.mk
+include src/bitbite/bitbite.mk
 
 #### Setup ####
 XMCLIB = /home/lbraun/projekte/treufunk/software/xmclib
-SRC = $(wildcard src/*.c src/bitbite/bitbuffer.c) $(RTT_SRC)
+SRC = $(wildcard src/*.c) $(RTT_SRC) $(BITBITE_SRC)
 UC = XMC4500
 UC_TYPE = F100
 UC_MEM = 1024
@@ -33,7 +34,7 @@ CFLAGS+= -I$(XMCLIB)/XMCLib/inc/
 CFLAGS+= -ggdb3
 # define uc type for xmclib
 CFLAGS+= -D$(UC)_$(UC_TYPE)x$(UC_MEM)
-CFLAGS+= $(RTT_INC)
+CFLAGS+= $(RTT_INC) $(BITBITE_INC)
 LFLAGS = -L$(CMSIS)/Lib/GCC -Wl,--gc-sections
 CPFLAGS = -Obinary
 ODFLAGS = -S
