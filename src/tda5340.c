@@ -9,25 +9,49 @@
 #include <bitbuffer.h>
 
 /* pin config */
-/* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
- * tried that. */
-#define TDAPON  P0_3 /* P_ON */
-#define TDANINT P0_2 /* PP2 <-> ERU0.3B3, that is ERU0, channel 3, input B, signal 3 */
+#if UC_SERIES == XMC11
+	/* for csmTDA */
+	#define TDAPON  P0_5 /* P_ON */
+	#define TDANINT P2_6 /* PP2 <-> ERU0.2A1 */
 
-/* spi pins, usic 1, channel 1 */
-#define SPI_MISO P0_0 /* SDO, DX0D */
-#define SPI_INPUTSRC USIC1_C1_DX0_P0_0
-#define SPI_MOSI P0_1 /* SDI, DOUT0 */
-#define SPI_SS   P0_9 /* NCS, SELO0 */
-#define SPI_SCLK P0_10 /* SCLK, SCLKOUT */
+	/* spi pins, usic 1, channel 1 */
+	#define SPI_ALT XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT6
+	#define SPI_MISO P0_15 /* SDO, DX0D */
+	#define SPI_INPUTSRC USIC0_C0_DX0_P0_15
+	#define SPI_MOSI P0_14 /* SDI, DOUT0 */
+	#define SPI_SS   P0_9 /* NCS, SELO0 */
+	#define SPI_SCLK P0_8 /* SCLK, SCLKOUT */
 
-/* interrupt, depends on ETL used, make sure you change TDA5350IRQHANDLER in .h
+	/* ETL config */
+	#define ETL ERU0_ETL2
+	#define ETL_SRCAB XMC_ERU_ETL_SOURCE_A
+	#define ETL_SRCPIN .input_a = ERU0_ETL2_INPUTA_P2_6
+#elif UC_SERIES == XMC45
+	/* We cannot use P1.14 or P1.15 here. These are used for the buttons. Yes, I
+	 * tried that. */
+	#define TDAPON  P0_3 /* P_ON */
+	#define TDANINT P0_2 /* PP2 <-> ERU0.3B3, that is ERU0, channel 3, input B, signal 3 */
+
+	/* spi pins, usic 1, channel 1 */
+	#define SPI_ALT XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT2
+	#define SPI_MISO P0_0 /* SDO, DX0D */
+	#define SPI_INPUTSRC USIC1_C1_DX0_P0_0
+	#define SPI_MOSI P0_1 /* SDI, DOUT0 */
+	#define SPI_SS   P0_9 /* NCS, SELO0 */
+	#define SPI_SCLK P0_10 /* SCLK, SCLKOUT */
+
+	/* ETL config */
+	#define ETL ERU0_ETL3
+	#define ETL_SRCAB XMC_ERU_ETL_SOURCE_B
+	#define ETL_SRCPIN .input_b = ERU0_ETL3_INPUTB_P0_2
+#else
+	#error "unknown uc"
+#endif
+
+/* common */
+/* interrupt, depends on OGU used, make sure you change TDA5350IRQHANDLER in .h
  * too */
 #define INTERRUPT ERU0_3_IRQn
-/* ETL config */
-#define ETL ERU0_ETL3
-#define ETL_SRCAB XMC_ERU_ETL_SOURCE_B
-#define ETL_SRCPIN ERU0_ETL3_INPUTB_P0_2
 /* select trigger channel */
 #define ETL_CHANNEL XMC_ERU_ETL_OUTPUT_TRIGGER_CHANNEL3
 /* OGU */
@@ -49,6 +73,13 @@ static void spiInit (tda5340Ctx * const ctx) {
 		};
 	XMC_USIC_CH_t * const spi = ctx->spi;
 
+	const XMC_GPIO_CONFIG_t configAlt = { .mode = SPI_ALT };
+	const XMC_GPIO_CONFIG_t configTri = { .mode = XMC_GPIO_MODE_INPUT_TRISTATE };
+	XMC_GPIO_Init (SPI_MOSI, &configAlt);
+	XMC_GPIO_Init (SPI_SS, &configAlt);
+	XMC_GPIO_Init (SPI_SCLK, &configAlt);
+	XMC_GPIO_Init (SPI_MISO, &configTri);
+
 	/* init spi */
 	XMC_SPI_CH_Init(spi, &config);
 
@@ -64,11 +95,6 @@ static void spiInit (tda5340Ctx * const ctx) {
 #endif
 
 	XMC_SPI_CH_Start(spi);
-
-	XMC_GPIO_SetMode(SPI_MOSI, XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT2);
-	XMC_GPIO_SetMode(SPI_SS, XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT2);
-	XMC_GPIO_SetMode(SPI_SCLK, XMC_GPIO_MODE_OUTPUT_PUSH_PULL_ALT2);
-	XMC_GPIO_SetMode(SPI_MISO, XMC_GPIO_MODE_INPUT_TRISTATE);
 
 	debug ("initialized spi\n");
 }
@@ -86,12 +112,15 @@ static void ponInit (tda5340Ctx * const ctx) {
 /*	Initialize NINT pin and interrupt handler
  */
 static void nintInit (tda5340Ctx * const ctx, const uint32_t priority) {
-	XMC_GPIO_SetMode(TDANINT, XMC_GPIO_MODE_INPUT_TRISTATE);
+	const XMC_GPIO_CONFIG_t config = {
+			.mode = XMC_GPIO_MODE_INPUT_TRISTATE,
+			};
+	XMC_GPIO_Init (TDANINT, &config);
 
 	static const XMC_ERU_ETL_CONFIG_t etlCfg = {
 		/* XXX: is is _very_ important that you use .input_a OR .input_b here
 		 * and NOT (BY ALL FUCKING MEANS NOT!) .input */
-		.input_b = ETL_SRCPIN,
+		ETL_SRCPIN,
 		.source = ETL_SRCAB,
 		.edge_detection = XMC_ERU_ETL_EDGE_DETECTION_FALLING,
 		.status_flag_mode = XMC_ERU_ETL_STATUS_FLAG_MODE_HWCTRL,
@@ -211,7 +240,15 @@ static bool pageChangeNoSS (tda5340Ctx * const ctx, const tda5340Address reg) {
 static void spiStart (tda5340Ctx * const ctx) {
 	/* isr uses spi as well and should not interrupt this */
 	NVIC_DisableIRQ(INTERRUPT);
+#if UC_SERIES == XMC11
+	/* μc lacks atomic compare & swap */
+	__disable_irq ();
+	assert (ctx->lock == 0 && "busy");
+	ctx->lock = 1;
+	__enable_irq ();
+#elif UC_SERIES == XMC45
 	assert (__sync_bool_compare_and_swap (&ctx->lock, 0, 1) && "busy");
+#endif
 	XMC_SPI_CH_EnableSlaveSelect(ctx->spi, XMC_SPI_CH_SLAVE_SELECT_0);
 }
 
@@ -450,11 +487,14 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 			/* wait until NINT has been pulled low. triggering on falling edge,
 			 * thus check if flag is set */
 			if (XMC_ERU_ETL_GetStatusFlag (ETL)) {
-				if (tda5340RegRead (ctx, TDA_IS0) != POR_MAGIC_STATUS ||
-						tda5340RegRead (ctx, TDA_IS1) != POR_MAGIC_STATUS ||
-						tda5340RegRead (ctx, TDA_IS2) != POR_MAGIC_STATUS) {
+				const uint8_t is0 = tda5340RegRead (ctx, TDA_IS0),
+						is1 = tda5340RegRead (ctx, TDA_IS1),
+						is2 = tda5340RegRead (ctx, TDA_IS2);
+				if (is0 != POR_MAGIC_STATUS || is1 != POR_MAGIC_STATUS ||
+						is2 != POR_MAGIC_STATUS) {
 					/* something is wrong, try again */
-					debug ("reset failed, trying again\n");
+					debug ("reset failed, regs are %x %x %x, trying again\n",
+							is0, is1, is2);
 					tda5340Reset (ctx);
 					break;
 				}
@@ -465,8 +505,9 @@ void tda5340IrqHandle (tda5340Ctx * const ctx) {
 
 				debug ("the interrupt seems to be working\n");
 
-				if (tda5340RegRead (ctx, TDA_IS2) != 0x00) {
-					debug ("reset failed, trying again\n");
+				const uint8_t is2b = tda5340RegRead (ctx, TDA_IS2);
+				if (is2b != 0x00) {
+					debug ("reset failed, is2 is %x\n", is2b);
 					tda5340Reset (ctx);
 					break;
 				}
