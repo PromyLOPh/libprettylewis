@@ -167,7 +167,7 @@ void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
  */
 void tda5340Reset (tda5340Ctx * const ctx) {
 	XMC_GPIO_SetOutputLow (TDAPON);
-	delay (10000000); /* XXX: use timer */
+	delayus (500);
 	XMC_GPIO_SetOutputHigh (TDAPON);
 }
 
