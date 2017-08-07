@@ -142,6 +142,14 @@ static void txerror (tda5340Ctx * const ctx, void * const data) {
 	assert (0);
 }
 
+/*	Reset context structure
+ */
+static void ctxReset (tda5340Ctx * const ctx) {
+	ctx->mode = TDA_RESET_MODE;
+	ctx->page = 0;
+	ctx->lock = 0;
+}
+
 /*	Initialize TDA handle
  *
  *	:param priority: priority for NINT interrupt, encoded with NVIC_EncodePriority()
@@ -151,11 +159,9 @@ void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
 	ponInit (ctx);
 	nintInit (ctx, priority);
 
-	ctx->mode = TDA_RESET_MODE;
-	ctx->page = 0;
+	ctxReset (ctx);
 	/* defaults to standard handler */
 	ctx->txerror = txerror;
-	ctx->lock = 0;
 
 	debug ("init complete\n");
 }
@@ -166,6 +172,7 @@ void tda5340Init (tda5340Ctx * const ctx, const uint32_t priority) {
  *	Startup sanity checks are managed by interrupt handler.
  */
 void tda5340Reset (tda5340Ctx * const ctx) {
+	ctxReset (ctx);
 	XMC_GPIO_SetOutputLow (TDAPON);
 	delayus (500);
 	XMC_GPIO_SetOutputHigh (TDAPON);
