@@ -1,4 +1,3 @@
-/*
 Copyright (c) 2015–2018 Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,22 +17,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-*/
-
-#pragma once
-
-#include <xmc_scu.h>
-
-#define arraysize(a) (sizeof (a)/sizeof (*a))
-#define bitIsSet(val, pos) (((val) >> (pos)) & 0x1)
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#define min(a,b) ((a) < (b) ? (a) : (b))
-
-/* busy-loop delay CPU by delay μs.
- * loops = delay*10^-6*freq = delay*(freq/10^6)
- */
-inline static void delayus (const uint32_t delay) {
-	const uint32_t freq = XMC_SCU_CLOCK_GetCpuClockFrequency ()/1000000;
-	const uint32_t loops = delay*freq;
-	for (volatile uint32_t i = 0; i < loops; i++);
-}
